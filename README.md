@@ -55,3 +55,14 @@ python server.py --open
 ## Автор
 
 Сделал **egor_get_** — [twitch.tv/egor_get_](https://www.twitch.tv/egor_get_). Заходи на стримы!
+
+## Поддержать автора
+
+Если панель пригодилась — можно закинуть на развитие:
+
+| Сеть | Адрес |
+|---|---|
+| TRC20 | `TG8MuNScLZQgjt8frYPpL5d44Scn8MvMR8` |
+| BTC | `bc1qj344hl2vm5s80u0g8fccmvy42j8t0ne4v54wwq` |
+
+Спасибо! 💜
