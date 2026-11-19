@@ -288,14 +288,43 @@ class YouTube(Worker):
         vd = player.get("videoDetails") or {}
         vid = vd.get("videoId")
         live = bool(vd.get("isLive"))
+        title = vd.get("title", "")
         m = re.search(r'"originalViewCount":"(\d+)"', html)
+        viewers = int(m.group(1)) if m else None
+        if not vid:
+            # С IP VPN/дата-центров YouTube прячет данные плеера («подтвердите, что вы не бот»).
+            # ID эфира всё равно есть в ytInitialData, а статус и зрителей отдаёт updated_metadata.
+            data = find_initial_data(html, "ytInitialData") or {}
+            vid = ((data.get("currentVideoEndpoint") or {}).get("watchEndpoint") or {}).get("videoId")
+            if not vid and self.id.startswith("video:"):
+                vid = self.id[6:]
+            if vid:
+                cv = (re.search(r'"clientVersion":"([^"]+)"', html) or [None, "2.20261118.01.00"])[1]
+                live, viewers, title = self._updated_metadata(vid, cv)
         if vid != self.video_id:
             self._chat_cont = None
             log(self.key, "трансляция", vid, "live" if live else "не в эфире")
         self.video_id = vid if live else None
         self.live = live
-        self.viewers = int(m.group(1)) if (m and live) else None
-        self.title = vd.get("title", "") if live else ""
+        self.viewers = viewers if live else None
+        self.title = title if live else ""
+
+    @staticmethod
+    def _updated_metadata(vid, client_ver):
+        r = json.loads(http("https://www.youtube.com/youtubei/v1/updated_metadata?prettyPrint=false",
+                            {"context": {"client": {"clientName": "WEB", "clientVersion": client_ver, "hl": "ru"}},
+                             "videoId": vid}))
+        live, viewers, title = False, None, ""
+        for a in r.get("actions", []):
+            vc = ((a.get("updateViewershipAction") or {}).get("viewCount") or {}).get("videoViewCountRenderer") or {}
+            if vc:
+                live = bool(vc.get("isLive"))
+                n = vc.get("originalViewCount") or ""
+                viewers = int(n) if str(n).isdigit() else None
+            t = (a.get("updateTitleAction") or {}).get("title")
+            if t:
+                title = runs_text(t)
+        return live, viewers, title
 
     def _init_chat(self):
         html = http(f"https://www.youtube.com/live_chat?is_popout=1&v={self.video_id}")
