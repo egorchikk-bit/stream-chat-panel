@@ -10,7 +10,7 @@
 
 ## Быстрый старт (Windows)
 
-Скачай `ПанельСтрима.zip` из [Releases](../../releases), распакуй и запусти `ПанельСтрима.exe`.
+Скачай [`StreamChatPanel.zip`](../../releases/latest/download/StreamChatPanel.zip) из [Releases](../../releases), распакуй и запусти `ПанельСтрима.exe`.
 Откроется окно — вставь ссылки на свои каналы:
 
 ```
