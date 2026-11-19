@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Панель стрима</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0b10; --card: rgba(255,255,255,.045); --card2: rgba(255,255,255,.08);
+    --line: rgba(255,255,255,.08); --text: #f1f2f6; --muted: #8d90a3;
+    --gold: #ffc24b; --green: #3ee08f; --red: #ff5a5a; --accent: #6c8cff;
+    --fs: 20px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; color: var(--text); overflow: hidden;
+    font: 500 var(--fs)/1.4 "Manrope", "Segoe UI", system-ui, sans-serif; }
+  body { display: flex; flex-direction: column;
+    background: radial-gradient(1200px 500px at 10% -10%, rgba(169,112,255,.13), transparent 60%),
+                radial-gradient(900px 500px at 100% 0%, rgba(255,77,94,.10), transparent 60%), var(--bg); }
+  button { font: inherit; }
+
+  /* ---------- шапка */
+  header { display: flex; gap: 10px; padding: 12px 14px; align-items: center; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line); background: rgba(10,11,16,.55); backdrop-filter: blur(10px); }
+  .total { display: flex; align-items: baseline; gap: 10px; padding: 6px 14px 6px 6px; }
+  .total .num { font-size: 2.1em; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .total .lbl { font-size: .62em; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .1em; }
+  #chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 8px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); }
+  .ic { width: 1.7em; height: 1.7em; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--pc); }
+  .ic svg { width: 60%; height: 60%; fill: var(--pfg, #fff); }
+  .chip:not(.live) .ic { filter: grayscale(1) brightness(.6); }
+  .chip .nm { font-size: .5em; font-weight: 700; color: var(--muted); letter-spacing: .03em; display: flex; align-items: center; gap: 5px; }
+  .chip.live .nm::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .chip .num { font-size: 1.15em; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .chip:not(.live) .num { color: var(--muted); font-size: .8em; font-weight: 600; }
+  .chip .err { font-size: .5em; color: var(--red); max-width: 200px; line-height: 1.2; }
+  .chip .err:empty { display: none; }
+  .spacer { flex: 1; }
+
+  .tools { display: flex; gap: 4px; align-items: center; padding: 4px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); flex-wrap: wrap; }
+  .tools button { background: transparent; color: var(--text); border: 0; border-radius: 10px;
+    padding: 6px 11px; font-size: .7em; font-weight: 600; cursor: pointer; line-height: 1.2;
+    display: flex; align-items: center; gap: 6px; }
+  .tools button:hover { background: var(--card2); }
+  .tools button.off { opacity: .35; }
+  .tools .sep { width: 1px; align-self: stretch; background: var(--line); margin: 4px 2px; }
+  .tools .pdot { width: .6em; height: .6em; border-radius: 50%; background: var(--pc); }
+  #filters { display: contents; }
+  #b-refresh { background: var(--accent); color: #fff; padding: 6px 14px; }
+  #b-refresh:hover { background: #7d9aff; }
+  .tools svg.st { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  #b-refresh.spin svg { animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .health { display: flex; align-items: center; gap: 7px; font-size: .55em; color: var(--muted); font-weight: 600;
+    padding: 0 6px; white-space: nowrap; }
+  .health .hd { width: .9em; height: .9em; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .health.warn .hd { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  .health.bad .hd { background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 1s infinite; }
+  .health.bad { color: var(--red); }
+  @keyframes blink { 50% { opacity: .3; } }
+
+  /* ---------- чат */
+  #chat { flex: 1; overflow-y: auto; padding: 10px 14px 28px; }
+  #chat::-webkit-scrollbar { width: 8px; }
+  #chat::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+  .m { display: flex; gap: .55em; align-items: flex-start; padding: .32em .6em; margin: 1px 0; border-radius: 10px;
+    overflow-wrap: anywhere; animation: in .22s ease-out; }
+  .m:hover { background: var(--card); }
+  @keyframes in { from { opacity: 0; transform: translateX(-6px); } }
+  .m .pf { flex: none; width: .9em; height: .9em; border-radius: 4px; margin-top: .27em; background: var(--pc); }
+  .m .body { min-width: 0; }
+  .m .a { font-weight: 800; margin-right: .4em; }
+  .m .ch { font-size: .55em; font-weight: 700; color: var(--pc); margin-right: 6px; vertical-align: 3px; }
+  .m .bd { font-size: .55em; font-weight: 700; color: var(--muted); background: var(--card2); padding: 1px 6px;
+    border-radius: 5px; margin-right: 5px; vertical-align: 3px; text-transform: uppercase; letter-spacing: .04em; }
+  .m .t { color: #dfe1ea; }
+  .m img.e { height: 1.45em; vertical-align: middle; margin: -4px 1px; }
+  .m.event { background: linear-gradient(100deg, rgba(255,194,75,.20), rgba(255,194,75,.04) 70%);
+    border: 1px solid rgba(255,194,75,.35); padding: .6em .75em; margin: 8px 0; }
+  .m.event .pf { background: var(--gold); }
+  .m.event .amt { display: inline-block; background: var(--gold); color: #1a1405; font-weight: 800;
+    padding: 1px 9px; border-radius: 7px; margin-right: 8px; }
+  .m.event .sys { color: var(--gold); font-weight: 700; }
+  .m.notice { color: var(--muted); font-size: .78em; justify-content: center; padding: .5em; }
+  .m.notice .pf { display: none; }
+  .m.notice .body { background: var(--card); border: 1px solid var(--line); padding: 3px 14px; border-radius: 20px; }
+
+  #empty { position: absolute; inset: 40% 0 auto; text-align: center; color: var(--muted); font-size: .8em; pointer-events: none; }
+  #newbar { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: none;
+    background: var(--accent); color: #fff; padding: 9px 20px; border-radius: 24px; cursor: pointer;
+    font-size: .72em; font-weight: 700; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+  #toast { position: fixed; top: 80px; left: 50%; transform: translate(-50%, -10px); opacity: 0; transition: .25s;
+    background: #1b1e2a; border: 1px solid var(--line); padding: 8px 18px; border-radius: 12px; font-size: .7em;
+    pointer-events: none; z-index: 30; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- настройки каналов */
+  #setup { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; padding: 16px;
+    background: rgba(5,6,10,.75); backdrop-filter: blur(6px); }
+  #setup.open { display: grid; }
+  .sbox { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: #12141c;
+    border: 1px solid var(--line); border-radius: 20px; padding: 26px; font-size: 16px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .sbox h2 { margin: 0 0 6px; font-size: 1.5em; font-weight: 800; letter-spacing: -.01em; }
+  .sbox p.hint { margin: 0 0 18px; color: var(--muted); line-height: 1.5; }
+  .plist { display: flex; gap: 6px; margin: 0 0 18px; flex-wrap: wrap; }
+  .plist > span { display: flex; align-items: center; gap: 6px; font-size: .8em; font-weight: 600; color: var(--muted);
+    background: var(--card); border-radius: 8px; padding: 4px 9px 4px 5px; }
+  .plist .ic { width: 1.5em; height: 1.5em; border-radius: 6px; }
+  .addrow { display: flex; gap: 8px; }
+  .addrow input { flex: 1; min-width: 0; background: #0b0c12; color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; font: inherit; outline: none; }
+  .addrow input:focus { border-color: var(--accent); }
+  .btn { background: var(--card2); color: var(--text); border: 0; border-radius: 12px; padding: 11px 18px;
+    font-weight: 700; cursor: pointer; }
+  .btn:hover { background: rgba(255,255,255,.13); }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #7d9aff; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  #s-err { color: var(--red); font-size: .85em; min-height: 1.4em; margin: 6px 2px 4px; }
+  #s-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 20px; }
+  #s-list:empty::before { content: "Каналов пока нет"; color: var(--muted); font-size: .9em; padding: 14px;
+    text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+  .srow { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 9px 10px; }
+  .srow .ic { width: 2em; height: 2em; }
+  .srow .info { flex: 1; min-width: 0; }
+  .srow .info b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srow .info small { color: var(--muted); }
+  .srow .x { background: transparent; border: 0; color: var(--muted); font-size: 1.3em; cursor: pointer; padding: 2px 8px;
+    border-radius: 8px; line-height: 1; }
+  .srow .x:hover { background: rgba(255,90,90,.15); color: var(--red); }
+  .sfoot { display: flex; gap: 8px; justify-content: flex-end; }
+  .credit { display: flex; align-items: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: .85em; }
+  .credit a { display: inline-flex; align-items: center; gap: 6px; color: #c4a6ff; font-weight: 700; text-decoration: none; }
+  .credit a:hover { text-decoration: underline; }
+  .credit .ic { width: 1.4em; height: 1.4em; border-radius: 6px; }
+  #empty .credit { justify-content: center; border: 0; margin-top: 10px; padding: 0; pointer-events: auto; font-size: .85em; }
+  @media (max-width: 700px) { .tools { width: 100%; } .spacer { display: none; } .addrow { flex-direction: column; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="total"><div class="num" id="v-all">—</div><div class="lbl">зрителей</div></div>
+  <div id="chips"></div>
+  <div class="spacer"></div>
+  <div class="tools">
+    <div class="health" id="health" title="Связь с сервером панели"><span class="hd"></span><span id="h-txt">подключение…</span></div>
+    <button id="b-refresh" title="Переподключить чаты и обновить зрителей (R). Shift+клик — перезагрузить страницу">
+      <svg class="st" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>Обновить</button>
+    <span class="sep"></span>
+    <div id="filters"></div>
+    <span class="sep"></span>
+    <button id="b-minus" title="Шрифт меньше">A−</button>
+    <button id="b-plus" title="Шрифт больше">A+</button>
+    <button id="b-clear" title="Очистить чат">Очистить</button>
+    <button id="b-full" title="Во весь экран">⛶</button>
+    <button id="b-gear" title="Мои каналы — добавить или убрать">
+      <svg class="st" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+</header>
+<div id="chat"></div>
+<div id="empty">Сообщений пока нет
+  <div class="credit">Создатель — <a href="https://www.twitch.tv/egor_get_" target="_blank" rel="noopener"><span class="ic cr-ic"></span>egor_get_ на Twitch</a></div></div>
+<div id="newbar">Новые сообщения ↓</div>
+<div id="toast"></div>
+
+<div id="setup">
+  <div class="sbox">
+    <h2 id="s-title">Мои каналы</h2>
+    <p class="hint" id="s-hint">Вставь ссылку на свой канал и нажми «Добавить». Можно добавить сразу несколько площадок — чат и зрители соберутся в одно окно.</p>
+    <div class="plist" id="s-plats"></div>
+    <div class="addrow">
+      <input id="s-input" placeholder="https://www.twitch.tv/имя_канала" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="s-add">Добавить</button>
+    </div>
+    <div id="s-err"></div>
+    <div id="s-list"></div>
+    <div class="sfoot">
+      <button class="btn" id="s-cancel">Отмена</button>
+      <button class="btn primary" id="s-save">Сохранить</button>
+    </div>
+    <div class="credit">Создатель — <a href="https://www.twitch.tv/egor_get_" target="_blank" rel="noopener"><span class="ic cr-ic"></span>egor_get_ на Twitch</a></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const chat = $("chat");
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sc_" + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("sc_" + k, JSON.stringify(v)); } catch {} },
+};
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- площадки
+const P = {
+  twitch:  { name: "Twitch",  color: "#a970ff", ex: "https://www.twitch.tv/имя_канала",
+             icon: '<path d="M4 3 3 7v12h4v3h3l3-3h4l5-5V3H4zm16 10-3 3h-5l-3 3v-3H6V5h14v8zm-4-6h2v5h-2V7zm-5 0h2v5h-2V7z"/>' },
+  youtube: { name: "YouTube", color: "#ff4d5e", ex: "https://www.youtube.com/@канал",
+             icon: '<path d="M8 5v14l11-7z"/>' },
+  kick:    { name: "Kick",    color: "#53fc18", fg: "#0b0c10", ex: "https://kick.com/имя_канала",
+             icon: '<path d="M4 3h5v6h2V7h2V5h2V3h5v6h-2v2h-2v2h2v2h2v6h-5v-2h-2v-2h-2v4H4z"/>' },
+  vk:      { name: "VK Видео Live", color: "#2787f5", ex: "https://live.vkvideo.ru/имя_канала",
+             icon: '<path d="M2 6h4l3 9 3-9h4l-5 13H7zM16 6h3v5l3-5h2l-3.5 6.2L24 19h-3l-2-3.8V19h-3z" transform="scale(.92) translate(1 0)"/>' },
+};
+const icon = p => `<span class="ic" style="--pc:${P[p].color};--pfg:${P[p].fg || "#fff"}"><svg viewBox="0 0 24 24">${P[p].icon}</svg></span>`;
+
+function parseLink(raw) {
+  let s = raw.trim();
+  if (!s) return { err: "Вставь ссылку на канал" };
+  if (/^@[\w.\-]+$/.test(s)) return { platform: "youtube", id: s };
+  if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+  let u; try { u = new URL(s); } catch { return { err: "Это не похоже на ссылку" }; }
+  const host = u.hostname.toLowerCase().replace(/^(www|m)\./, "");
+  if (!host.includes(".")) return { err: "Нужна ссылка целиком, например " + P.twitch.ex };
+  const seg = u.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const first = seg[0] === "popout" ? seg[1] : seg[0];
+  if (host.endsWith("twitch.tv")) {
+    if (first && /^\w{2,25}$/.test(first) && !["directory", "videos", "settings"].includes(first)) return { platform: "twitch", id: first.toLowerCase() };
+    return { err: "Не нашёл имя канала в ссылке Twitch" };
+  }
+  if (host === "youtu.be" && seg[0]) return { platform: "youtube", id: "video:" + seg[0] };
+  if (host.endsWith("youtube.com")) {
+    if (u.searchParams.get("v")) return { platform: "youtube", id: "video:" + u.searchParams.get("v") };
+    if (seg[0]?.startsWith("@")) return { platform: "youtube", id: seg[0] };
+    if (seg[0] === "channel" && seg[1]) return { platform: "youtube", id: "channel/" + seg[1] };
+    if ((seg[0] === "c" || seg[0] === "user") && seg[1]) return { platform: "youtube", id: seg[0] + "/" + seg[1] };
+    if (seg[0] === "live" && seg[1]) return { platform: "youtube", id: "video:" + seg[1] };
+    return { err: "Нужна ссылка вида https://www.youtube.com/@канал" };
+  }
+  if (host.endsWith("kick.com")) {
+    if (first && /^[\w\-]{2,40}$/.test(first)) return { platform: "kick", id: first.toLowerCase() };
+    return { err: "Не нашёл имя канала в ссылке Kick" };
+  }
+  if (host.endsWith("vkvideo.ru") || host.endsWith("vkplay.live") || host.endsWith("vkplay.ru")) {
+    if (first && /^[\w\-.]{2,60}$/.test(first) && first !== "app") return { platform: "vk", id: first.toLowerCase() };
+    return { err: "Нужна ссылка вида https://live.vkvideo.ru/имя_канала" };
+  }
+  return { err: "Пока поддерживаются Twitch, YouTube, Kick и VK Видео Live" };
+}
+const prettyId = c => c.platform === "youtube" ? c.id.replace(/^video:/, "трансляция ").replace(/^channel\//, "") : c.id;
+
+// ---------- окно настроек
+let draft = [], firstRun = false;
+document.querySelectorAll(".cr-ic").forEach(e => e.outerHTML = icon("twitch"));
+$("s-plats").innerHTML =Object.keys(P).map(p => `<span>${icon(p)}${P[p].name}</span>`).join("");
+function renderDraft() {
+  $("s-list").innerHTML = draft.map((c, i) => `<div class="srow">${icon(c.platform)}
+    <div class="info"><b>${esc(prettyId(c))}</b><small>${P[c.platform].name}</small></div>
+    <button class="x" data-i="${i}" title="Убрать">×</button></div>`).join("");
+  $("s-save").disabled = !draft.length;
+}
+$("s-list").onclick = e => { const b = e.target.closest(".x"); if (b) { draft.splice(+b.dataset.i, 1); renderDraft(); } };
+function addFromInput() {
+  const r = parseLink($("s-input").value);
+  if (r.err) { $("s-err").textContent = r.err; return; }
+  if (draft.some(c => c.platform === r.platform && c.id.toLowerCase() === r.id.toLowerCase())) { $("s-err").textContent = "Этот канал уже в списке"; return; }
+  draft.push(r); $("s-input").value = ""; $("s-err").textContent = ""; renderDraft(); $("s-input").focus();
+}
+$("s-add").onclick = addFromInput;
+$("s-input").addEventListener("keydown", e => { if (e.key === "Enter") addFromInput(); });
+$("s-input").addEventListener("input", () => { $("s-err").textContent = ""; });
+function openSetup(first) {
+  firstRun = !!first;
+  draft = channels.map(c => ({ platform: c.platform, id: c.id }));
+  $("s-title").textContent = first ? "Привет! Добавь свои каналы" : "Мои каналы";
+  $("s-cancel").style.display = first ? "none" : "";
+  $("s-err").textContent = ""; $("s-input").value = "";
+  renderDraft(); $("setup").classList.add("open"); setTimeout(() => $("s-input").focus(), 50);
+}
+const closeSetup = () => $("setup").classList.remove("open");
+$("s-cancel").onclick = closeSetup;
+$("b-gear").onclick = () => openSetup(false);
+$("s-save").onclick = async () => {
+  if ($("s-input").value.trim()) { addFromInput(); if ($("s-err").textContent) return; }
+  $("s-save").disabled = true;
+  try {
+    const r = await fetch("/api/config", { method: "POST", body: JSON.stringify({ channels: draft }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error);
+    closeSetup(); toast("Каналы сохранены"); restartPoll();
+  } catch (e) { $("s-err").textContent = "Не удалось сохранить: " + e.message; }
+  $("s-save").disabled = false;
+};
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !firstRun) closeSetup(); });
+
+// ---------- интерфейс
+let show = store.get("show", {});
+let fs = store.get("fs", 20);
+const visible = p => show[p] !== false;
+const applyUi = () => {
+  document.documentElement.style.setProperty("--fs", fs + "px");
+  document.querySelectorAll("#filters button").forEach(b => b.classList.toggle("off", !visible(b.dataset.p)));
+  chat.querySelectorAll(".m[data-p]").forEach(e => e.style.display = visible(e.dataset.p) ? "" : "none");
+};
+$("filters").onclick = e => { const b = e.target.closest("button"); if (!b) return; show[b.dataset.p] = !visible(b.dataset.p); store.set("show", show); applyUi(); };
+$("b-plus").onclick = () => { fs = Math.min(48, fs + 2); store.set("fs", fs); applyUi(); };
+$("b-minus").onclick = () => { fs = Math.max(12, fs - 2); store.set("fs", fs); applyUi(); };
+$("b-clear").onclick = () => { chat.innerHTML = ""; $("empty").style.display = ""; };
+$("b-full").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+applyUi();
+
+let toastT;
+function toast(msg) {
+  $("toast").textContent = msg; $("toast").classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => $("toast").classList.remove("show"), 1800);
+}
+
+// ---------- прокрутка
+let stick = true;
+chat.addEventListener("scroll", () => {
+  stick = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 60;
+  if (stick) $("newbar").style.display = "none";
+});
+$("newbar").onclick = () => { stick = true; chat.scrollTop = chat.scrollHeight; $("newbar").style.display = "none"; };
+
+const fixColor = c => {
+  if (!c || !/^#[0-9a-f]{6}$/i.test(c)) return null;
+  const n = parseInt(c.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return (r * .299 + g * .587 + b * .114) < 70 ? null : c;   // тёмные ники плохо видно
+};
+const nameColor = name => { let h = 0; for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) >>> 0; return `hsl(${h % 360},75%,70%)`; };
+
+let chanCount = {};   // сколько каналов на каждой площадке — если >1, подписываем канал у сообщения
+function add({ p, author, color, html, event, amount, sys, notice, badges, chan }) {
+  const d = document.createElement("div");
+  d.className = "m" + (event ? " event" : "") + (notice ? " notice" : "");
+  d.dataset.p = p;
+  d.style.setProperty("--pc", P[p].color);
+  if (!visible(p)) d.style.display = "none";
+  let h = `<span class="pf" title="${P[p].name}"></span><div class="body">`;
+  if (chan && chanCount[p] > 1) h += `<span class="ch">${esc(chan)}</span>`;
+  if (amount) h += `<span class="amt">${esc(amount)}</span>`;
+  if (sys) h += `<span class="sys">${esc(sys)}</span> `;
+  if (badges && badges.length) h += badges.map(b => `<span class="bd">${esc(b)}</span>`).join("");
+  if (author) h += `<span class="a" style="color:${color || nameColor(author)}">${esc(author)}</span>`;
+  h += `<span class="t">${html || ""}</span></div>`;
+  d.innerHTML = h;
+  chat.appendChild(d);
+  $("empty").style.display = "none";
+  while (chat.children.length > 400) chat.firstChild.remove();
+  if (stick) chat.scrollTop = chat.scrollHeight;
+  else $("newbar").style.display = "block";
+}
+
+// ---------- Twitch (анонимно, только чтение)
+function parseTags(raw) {
+  const t = {};
+  for (const p of raw.split(";")) { const i = p.indexOf("="); t[p.slice(0, i)] = p.slice(i + 1).replace(/\\s/g, " ").replace(/\\:/g, ";").replace(/\\\\/g, "\\"); }
+  return t;
+}
+function twEmotes(text, emotes) {
+  const chars = Array.from(text);
+  if (!emotes) return esc(text);
+  const list = [];
+  for (const part of emotes.split("/")) {
+    const [id, ranges] = part.split(":");
+    for (const r of (ranges || "").split(",")) { const [a, b] = r.split("-").map(Number); list.push({ id, a, b }); }
+  }
+  list.sort((x, y) => x.a - y.a);
+  let out = "", pos = 0;
+  for (const e of list) {
+    out += esc(chars.slice(pos, e.a).join(""));
+    out += `<img class="e" alt="${esc(chars.slice(e.a, e.b + 1).join(""))}" src="https://static-cdn.jtvnw.net/emoticons/v2/${e.id}/default/dark/2.0">`;
+    pos = e.b + 1;
+  }
+  return out + esc(chars.slice(pos).join(""));
+}
+const TW_BADGES = { broadcaster: "стример", moderator: "мод", vip: "VIP", subscriber: "саб", founder: "основатель" };
+const tw = { key: "", ws: null, retry: 1000, last: 0, t: null, joined: new Set() };
+function twConnect(logins) {
+  clearTimeout(tw.t);
+  if (tw.ws) { try { tw.ws.onclose = null; tw.ws.onmessage = null; tw.ws.close(); } catch {} tw.ws = null; }
+  tw.key = logins.join(","); tw.joined.clear();
+  if (!logins.length) return;
+  tw.last = Date.now();
+  const ws = tw.ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+  ws.onopen = () => {
+    tw.retry = 1000;
+    ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+    ws.send("PASS SCHMOOPIIE");
+    ws.send("NICK justinfan" + Math.floor(10000 + Math.random() * 80000));
+    ws.send("JOIN " + logins.map(l => "#" + l).join(","));
+  };
+  ws.onmessage = ev => {
+    tw.last = Date.now();
+    for (const line of ev.data.split("\r\n")) {
+      if (!line) continue;
+      if (line.startsWith("PING")) { ws.send("PONG :tmi.twitch.tv"); continue; }
+      if (line.includes(" PONG ")) continue;
+      const m = line.match(/^(?:@(\S+) )?:(\S+) (\S+) #?(\S+)?(?: :(.*))?$/);
+      if (!m) continue;
+      const [, rawTags, prefix, cmd, chan, text] = m;
+      const t = rawTags ? parseTags(rawTags) : {};
+      const nick = t["display-name"] || prefix.split("!")[0];
+      const badges = (t.badges || "").split(",").map(b => TW_BADGES[b.split("/")[0]]).filter(Boolean);
+      if (cmd === "PRIVMSG") {
+        let body = text || "", action = false;
+        if (body.startsWith("\u0001ACTION ")) { body = body.slice(8, -1); action = true; }
+        const bits = Number(t.bits || 0);
+        add({ p: "twitch", chan, author: nick, color: fixColor(t.color), badges,
+              html: (action ? "<i>" : "") + twEmotes(body, t.emotes) + (action ? "</i>" : ""),
+              event: bits > 0, amount: bits ? bits + " битс" : null });
+      } else if (cmd === "USERNOTICE") {
+        add({ p: "twitch", chan, event: true, sys: t["system-msg"] || "Событие", author: text ? nick : null,
+              color: fixColor(t.color), html: text ? twEmotes(text, t.emotes) : "" });
+      } else if (cmd === "ROOMSTATE" && chan && !tw.joined.has(chan)) {
+        tw.joined.add(chan);
+        add({ p: "twitch", notice: true, html: `Подключено к чату Twitch #${esc(chan)}` });
+      }
+    }
+  };
+  ws.onclose = () => { tw.t = setTimeout(() => twConnect(tw.key ? tw.key.split(",") : []), tw.retry); tw.retry = Math.min(tw.retry * 2, 30000); };
+}
+
+// сторож Twitch: каждые 60 с пингуем сами; если 2.5 мин тишина — соединение «зависло», переподключаемся
+setInterval(() => {
+  if (tw.ws && tw.ws.readyState === 1) { try { tw.ws.send("PING :panel"); } catch {} }
+  if (tw.ws && Date.now() - tw.last > 150000) twConnect(tw.key.split(","));
+}, 60000);
+
+// ---------- сервер: зрители, чаты YouTube, Kick и VK
+let seq = 0, pollGen = 0, pollT = null, pollCtl = null, lastOk = 0, channels = [], setupShown = false;
+const liveSeen = new Set();
+const fmt = n => n == null ? "—" : n.toLocaleString("ru-RU");
+const partsHtml = parts => (parts || []).map(x => x.t === "img"
+  ? `<img class="e" alt="${esc(x.alt)}" src="${esc(x.src)}">` : esc(x.v)).join("");
+
+function renderChannels(list) {
+  const sig = list.map(c => c.key).join("|");
+  if (renderChannels.sig !== sig) {
+    renderChannels.sig = sig;
+    $("chips").innerHTML = list.map((c, i) => `<div class="chip" id="chip${i}" style="--pc:${P[c.platform].color}" title="${esc(c.url)}">
+      ${icon(c.platform)}<div><div class="nm">${esc(c.name)}</div><div class="num">—</div><div class="err"></div></div></div>`).join("");
+    const plats = [...new Set(list.map(c => c.platform))];
+    $("filters").innerHTML = plats.map(p => `<button data-p="${p}" style="--pc:${P[p].color}" title="Показывать чат ${P[p].name}"><span class="pdot"></span>${P[p].name}</button>`).join("");
+    chanCount = {}; list.forEach(c => chanCount[c.platform] = (chanCount[c.platform] || 0) + 1);
+    applyUi();
+  }
+  let tot = 0, any = false;
+  list.forEach((c, i) => {
+    const el = $("chip" + i);
+    el.classList.toggle("live", c.live);
+    el.querySelector(".num").textContent = c.live ? fmt(c.viewers) : "офлайн";
+    el.querySelector(".err").textContent = c.error ? "ошибка: " + c.error.slice(0, 80) : "";
+    if (c.live) { any = true; tot += c.viewers || 0; }
+    if (c.platform !== "twitch" && c.live && !liveSeen.has(c.key)) {
+      liveSeen.add(c.key); add({ p: c.platform, notice: true, html: `Подключено к чату ${P[c.platform].name} ${esc(c.name)}` });
+    }
+    if (!c.live) liveSeen.delete(c.key);
+  });
+  $("v-all").textContent = any ? fmt(tot) : "—";
+  const logins = list.filter(c => c.platform === "twitch").map(c => c.id);
+  if (logins.join(",") !== tw.key) twConnect(logins);
+}
+
+async function poll(gen) {
+  pollCtl = new AbortController();
+  const kill = setTimeout(() => pollCtl.abort(), 8000);   // запрос не может висеть вечно
+  try {
+    const s = await fetch("/api/state?since=" + seq, { signal: pollCtl.signal, cache: "no-store" }).then(r => r.json());
+    if (gen !== pollGen) return;
+    lastOk = Date.now();
+    channels = s.channels;
+    if (!channels.length && !setupShown) { setupShown = true; openSetup(true); }
+    if (channels.length) setupShown = false;
+    renderChannels(channels);
+    if (s.seq < seq) seq = 0;              // сервер перезапущен
+    for (const m of s.messages) {
+      add({ p: m.platform, chan: m.channel_name, author: m.author, color: fixColor(m.color), html: partsHtml(m.parts), badges: m.badges,
+            event: m.kind && m.kind !== "msg", amount: m.amount, sys: m.sys });
+      seq = m.seq;
+    }
+    if (!s.messages.length) seq = s.seq;
+  } catch (e) {
+    /* ошибку покажет индикатор связи */
+  } finally {
+    clearTimeout(kill);
+    if (gen === pollGen) pollT = setTimeout(() => poll(gen), 2000);
+  }
+}
+function restartPoll() {
+  pollGen++; clearTimeout(pollT);
+  try { pollCtl && pollCtl.abort(); } catch {}
+  poll(pollGen);
+}
+
+// индикатор связи + сторож опроса
+setInterval(() => {
+  const ago = lastOk ? Math.round((Date.now() - lastOk) / 1000) : null;
+  const h = $("health");
+  h.classList.toggle("warn", ago !== null && ago >= 8 && ago < 20);
+  h.classList.toggle("bad", ago !== null && ago >= 20);
+  $("h-txt").textContent = ago === null ? "подключение…" : ago < 8 ? "на связи" : ago < 20 ? `нет ответа ${ago} с` : "сервер не отвечает";
+  if (ago !== null && ago >= 20 && ago % 15 === 0) restartPoll();
+}, 1000);
+
+// ---------- кнопка «Обновить»
+async function refresh(ev) {
+  if (ev && ev.shiftKey) return location.reload();
+  const b = $("b-refresh");
+  b.classList.add("spin");
+  try { await fetch("/api/refresh", { cache: "no-store", signal: AbortSignal.timeout(5000) }); } catch {}
+  liveSeen.clear();
+  twConnect(tw.key ? tw.key.split(",") : []);
+  restartPoll();
+  toast("Переподключаю чаты и обновляю зрителей…");
+  setTimeout(() => b.classList.remove("spin"), 900);
+}
+$("b-refresh").onclick = refresh;
+document.addEventListener("keydown", e => {
+  if ($("setup").classList.contains("open") || e.target.tagName === "INPUT") return;
+  if ((e.key === "r" || e.key === "к" || e.key === "R" || e.key === "К") && !e.ctrlKey && !e.metaKey && !e.altKey) refresh(e);
+});
+
+restartPoll();
+</script>
+</body>
+</html>

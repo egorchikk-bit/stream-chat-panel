@@ -1,0 +1,13 @@
+# личные настройки каналов
+config.json
+test-config.json
+
+# сборка
+build/
+dist/
+*.spec
+Для друга/
+__pycache__/
+
+# старые копии
+*.before-*
